@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  staff
+  supervisor
+  admin
+  auditor
+}
+
+enum StaffStatus {
+  active
+  on_duty
+  off_duty
+  on_break
+  archived
+}
+
+enum TimesheetStatus {
+  open
+  closed
+  pending_approval
+}
+
+enum ClientStatus {
+  active
+  archived
+}
+
+model Facility {
+  id               String      @id @default(uuid())
+  name             String
+  address          String?
+  contactInfo      String?     @map("contact_info")
+  subscriptionPlan String?     @map("subscription_plan")
+  joinCode         String      @unique @map("join_code")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  users            User[]
+  staff            Staff[]
+  documents        Document[]
+  auditLogs        AuditLog[]
+  scheduleShifts   ScheduleShift[]
+  clients          Client[]
+  clientDocuments  ClientDocument[]
+  checklistStatuses FacilityChecklistStatus[]
+
+  @@map("facilities")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole
+  facilityId   String     @map("facility_id")
+  staffId      String?    @unique @map("staff_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  facility     Facility   @relation(fields: [facilityId], references: [id])
+  staff        Staff?     @relation(fields: [staffId], references: [id])
+  auditLogs    AuditLog[]
+  scheduleShiftsCreated ScheduleShift[] @relation("ScheduleCreatedBy")
+
+  @@map("users")
+}
+
+model Staff {
+  id                      String          @id @default(uuid())
+  facilityId              String          @map("facility_id")
+  firstName               String          @map("first_name")
+  lastName                String          @map("last_name")
+  email                   String
+  phone                   String?
+  role                    String
+  status                  StaffStatus     @default(active)
+  profileComplete         Boolean         @default(false) @map("profile_complete")
+  hireDate                DateTime        @map("hire_date") @db.Date
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @updatedAt @map("updated_at")
+  facility                Facility        @relation(fields: [facilityId], references: [id])
+  user                    User?
+  timesheets              Timesheet[]
+  certifications          Certification[]
+  documents               Document[]
+  scheduleShifts          ScheduleShift[]
+  clientAssignments       ClientStaffAssignment[]
+
+  @@unique([facilityId, email])
+  @@map("staff")
+}
+
+model Timesheet {
+  id           String          @id @default(uuid())
+  staffId      String          @map("staff_id")
+  date         DateTime        @db.Date
+  checkInTime  DateTime        @map("check_in_time")
+  checkOutTime DateTime?       @map("check_out_time")
+  hoursWorked  Decimal?        @map("hours_worked") @db.Decimal(5, 2)
+  notes        String?
+  status       TimesheetStatus @default(open)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  staff        Staff           @relation(fields: [staffId], references: [id])
+
+  @@index([staffId, date])
+  @@map("timesheets")
+}
+
+model Certification {
+  id             String   @id @default(uuid())
+  staffId        String   @map("staff_id")
+  certType       String   @map("cert_type")
+  issueDate      DateTime @map("issue_date") @db.Date
+  expirationDate DateTime @map("expiration_date") @db.Date
+  issuingBody    String   @map("issuing_body")
+  createdAt      DateTime @default(now()) @map("created_at")
+  staff          Staff    @relation(fields: [staffId], references: [id])
+
+  @@map("certifications")
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  staffId    String   @map("staff_id")
+  facilityId String   @map("facility_id")
+  filePath   String   @map("file_path")
+  fileType   String   @map("file_type")
+  uploadDate DateTime @map("upload_date")
+  version    Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at")
+  staff      Staff    @relation(fields: [staffId], references: [id])
+  facility   Facility @relation(fields: [facilityId], references: [id])
+
+  @@map("documents")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  facilityId String   @map("facility_id")
+  userId     String   @map("user_id")
+  action     String
+  tableName  String   @map("table_name")
+  recordId   String   @map("record_id")
+  changes    Json?
+  timestamp  DateTime @default(now())
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([facilityId, timestamp])
+  @@map("audit_logs")
+}
+
+model ScheduleShift {
+  id          String   @id @default(uuid())
+  facilityId  String   @map("facility_id")
+  staffId     String   @map("staff_id")
+  startAt     DateTime @map("start_at")
+  endAt       DateTime @map("end_at")
+  notes       String?
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  facility    Facility @relation(fields: [facilityId], references: [id])
+  staff       Staff    @relation(fields: [staffId], references: [id])
+  createdBy   User?    @relation("ScheduleCreatedBy", fields: [createdById], references: [id])
+
+  @@index([facilityId, startAt])
+  @@index([staffId, startAt])
+  @@map("schedule_shifts")
+}
+
+model Client {
+  id             String         @id @default(uuid())
+  facilityId     String         @map("facility_id")
+  firstName      String         @map("first_name")
+  lastName       String         @map("last_name")
+  dateOfBirth    DateTime       @map("date_of_birth") @db.Date
+  healthProblems String?        @map("health_problems")
+  needs          String?
+  dailyCarePlan  String?        @map("daily_care_plan")
+  status         ClientStatus   @default(active)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  facility       Facility       @relation(fields: [facilityId], references: [id])
+  assignments    ClientStaffAssignment[]
+  documents      ClientDocument[]
+
+  @@index([facilityId, status])
+  @@map("clients")
+}
+
+model ClientStaffAssignment {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  staffId   String   @map("staff_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, staffId])
+  @@map("client_staff_assignments")
+}
+
+model ClientDocument {
+  id               String   @id @default(uuid())
+  clientId         String   @map("client_id")
+  facilityId       String   @map("facility_id")
+  category         String
+  filePath         String   @map("file_path")
+  fileName         String   @map("file_name")
+  fileType         String   @map("file_type")
+  uploadDate       DateTime @map("upload_date")
+  uploadedByUserId String?  @map("uploaded_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  facility         Facility @relation(fields: [facilityId], references: [id])
+
+  @@map("client_documents")
+}
+
+model FacilityChecklistStatus {
+  id              String   @id @default(uuid())
+  facilityId      String   @map("facility_id")
+  itemKey         String   @map("item_key")
+  status          String   @default("pending")
+  notes           String?
+  updatedByUserId String?  @map("updated_by_user_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  facility        Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, itemKey])
+  @@map("facility_checklist_status")
+}
