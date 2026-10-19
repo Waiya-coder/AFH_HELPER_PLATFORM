@@ -2,11 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "web": {
-      "root": ".",
-      "framework": null,
-      "installCommand": "npm install",
-      "buildCommand": "npm run build -w @afh/shared && npm run build -w @afh/web",
-      "outputDirectory": "apps/web/dist"
+      "root": "apps/web",
+      "framework": "vite",
+      "installCommand": "cd ../.. && npm install",
+      "buildCommand": "cd ../.. && npm run build -w @afh/shared && npm run build -w @afh/web",
+      "outputDirectory": "dist"
     }
   },
   "rewrites": [
