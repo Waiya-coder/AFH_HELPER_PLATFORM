@@ -1,8 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build -w @afh/shared && npm run build -w @afh/web",
-  "outputDirectory": "apps/web/dist",
-  "installCommand": "npm install",
-  "framework": null,
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+  "services": {
+    "web": {
+      "root": ".",
+      "framework": null,
+      "installCommand": "npm install",
+      "buildCommand": "npm run build -w @afh/shared && npm run build -w @afh/web",
+      "outputDirectory": "apps/web/dist"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!assets/).*)",
+      "destination": { "service": "web" }
+    }
+  ]
 }

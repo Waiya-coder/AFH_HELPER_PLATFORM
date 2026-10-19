@@ -28,7 +28,9 @@ On **afh-api → Environment**, add `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_
 
 ---
 
-## Part B — Vercel (web app) ~5 min
+## Part B — Vercel (web app only) ~5 min
+
+The API runs on **Render**, not Vercel. `vercel.json` defines a single **`web`** service (static React app).
 
 1. Go to https://vercel.com/new and sign in with GitHub.
 2. **Import** `Waiya-coder/AFH_HELPER_PLATFORM`.
